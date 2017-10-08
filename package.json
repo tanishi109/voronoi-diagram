@@ -23,6 +23,7 @@
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
     "styled-jsx": "^1.0.11",
+    "voronoi": "^1.0.0",
     "webpack": "^3.6.0"
   }
 }

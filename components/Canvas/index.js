@@ -1,5 +1,6 @@
 import React from "react";
 import Head from "next/head";
+import Voronoi from "voronoi";
 
 const renderStage = (x = 200, division = 5) => {
   const canvas = document.getElementById("stage");
@@ -13,8 +14,33 @@ const renderStage = (x = 200, division = 5) => {
   ctx.clearRect(0, 0, width, height);
 
   const arcs = [
+    [50, 50],
+    [50, 100],
+    [100, 50],
     [100, 100],
   ];
+
+  const voronoi = new Voronoi();
+  const bbox = {xl: 0, xr: width, yt: 0, yb: height};
+  const sites = arcs.map((arc) => {
+    return {x: arc[0], y: arc[1]};
+  });
+  const diagram = voronoi.compute(sites, bbox);
+
+  diagram.cells.forEach((cell, ii) => {
+    ctx.beginPath();
+    cell.halfedges.forEach((he, i) => {
+      const {x: ax, y: ay} = he.edge.va;
+      const {x: bx, y: by} = he.edge.vb;
+
+      i === 0 ? ctx.moveTo(ax, ay) : ctx.lineTo(ax, ay);
+      ctx.lineTo(bx, by);
+    });
+    ctx.closePath();
+    ctx.fillStyle = ["red", "blue", "green", "yellow"][ii];
+    ctx.fill();
+    ctx.stroke();
+  });
 
   const r = 5;
   arcs.forEach((arc) => {
