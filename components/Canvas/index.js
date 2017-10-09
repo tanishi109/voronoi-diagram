@@ -3,7 +3,12 @@ import Head from "next/head";
 import Voronoi from "voronoi";
 import {uniqWith} from "lodash";
 
-const renderStage = (img) => {
+const getDistance = (x1, y1, x2, y2) => {
+  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+};
+
+let diagram;
+const renderStage = (img, cx, cy) => {
   const canvas = document.getElementById("stage");
   const ctx = canvas.getContext("2d");
   const width = document.getElementById("wrapper").clientWidth;
@@ -16,24 +21,37 @@ const renderStage = (img) => {
 
   // set arc points
   let arcs = [];
-  const div = 100;
+  const div = 10;
   " ".repeat(width / div).split("").map((_, w) => {
     " ".repeat(height / div).split("").map((_, h) => {
-      arcs.push([w * div, h * div]);
+      const x = w * div + Math.random() * div / 2;
+      const y = h * div + Math.random() * div / 2;
+      if (cx && cy && getDistance(x, y, cx, cy) > 100 || !cx && !cy) {
+        arcs.push([x, y]);
+      }
     });
   });
+  if (cx && cy) {
+    arcs.push([cx, cy]);
+  }
 
   // put image
   ctx.drawImage(img, 0, 0);
 
   // render voronoi diagram
   const voronoi = new Voronoi();
-  const bbox = {xl: 0, xr: width, yt: 0, yb: height};
-  const sites = arcs.map((arc) => {
-    return {x: arc[0], y: arc[1]};
-  });
-  const diagram = voronoi.compute(sites, bbox);
+  diagram = (() => {
+    if (diagram) {
+      voronoi.recycle(diagram);
+    }
+    const bbox = {xl: 0, xr: width, yt: 0, yb: height};
+    const sites = arcs.map((arc) => {
+      return {x: arc[0], y: arc[1]};
+    });
+    return voronoi.compute(sites, bbox);
+  })();
 
+  const canvasColor = ctx.getImageData(0, 0, width, height);
   diagram.cells.forEach((cell) => {
     ctx.beginPath();
     const {halfedges} = cell;
@@ -65,25 +83,28 @@ const renderStage = (img) => {
     }).sort((l, r) => {
       return l.deg < r.deg;
     });
-
+    
     pointsWithDeg.forEach((point, i) => {
       const {x, y} = point;
-
+      
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
     ctx.closePath();
-
+    
     // set color
-    const canvasColor = ctx.getImageData(cell.site.x, cell.site.y, 1, 1).data;
-    const r = canvasColor[0];
-    const g = canvasColor[1];
-    const b = canvasColor[2];
-    const rgb = `rgb(${r}, ${g}, ${b})`;
+    if (cell.site.x !== cx && cell.site.y !== cy) {
+      // const canvasColor = ctx.getImageData(cell.site.x, cell.site.y, 1, 1).data;
+      const index = (parseInt(cell.site.y)*(canvasColor.width*4)) + (parseInt(cell.site.x)*4);
+      const r = canvasColor.data[index + 0];
+      const g = canvasColor.data[index + 1];
+      const b = canvasColor.data[index + 2];
+      const rgb = `rgb(${r}, ${g}, ${b})`;
+      
+      ctx.fillStyle = rgb;
+      ctx.fill();
+    }
 
-    ctx.fillStyle = rgb;
-    ctx.fill();
-
-    ctx.stroke();
+    // ctx.stroke();
   });
 
   // const r = 5;
@@ -99,6 +120,13 @@ export default class extends React.Component {
     const {img} = this.props;
 
     renderStage(img);
+
+    window.addEventListener("mousemove", (e) => {
+      const x = e.offsetX;
+      const y = e.offsetY;
+
+      renderStage(img, x, y);
+    });
   }
 
   render() {
